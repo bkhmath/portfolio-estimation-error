@@ -1,0 +1,16 @@
+# The downloaded French library archives.  A clean clone works offline on the
+# simulated layer and reproduces the real results after `make data`.
+data/cache/
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/

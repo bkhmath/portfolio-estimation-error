@@ -1,0 +1,25 @@
+{
+  "quick": false,
+  "simulated_only": false,
+  "worst_ks_distance": 0.027700919668568802,
+  "max_self_deception": 142.09825721653897,
+  "jagannathan_ma_residual": 1.3602617296437636e-13,
+  "volatility::49 industry portfolios": {
+    "sample": 0.10678343994524987,
+    "clipped": 0.1064175489321784,
+    "linear": 0.10393150435280088,
+    "nonlinear": 0.10384736411537357,
+    "factor": 0.11271419935165658,
+    "equal": 0.16675613789815918,
+    "sample_long_only": 0.11514716692047715
+  },
+  "volatility::100 size / book-to-market portfolios": {
+    "sample": 0.10716828917429515,
+    "clipped": 0.09509034746944556,
+    "linear": 0.09793451489102714,
+    "nonlinear": 0.0955034521452499,
+    "factor": 0.0989948060038966,
+    "equal": 0.17475635892957603,
+    "sample_long_only": 0.12744741103798296
+  }
+}
