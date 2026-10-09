@@ -2,20 +2,18 @@
 
 The estimators need a real cross-section with a genuine factor structure and
 enough history for a rolling protocol to roll over.  The French library gives
-both, it is free and unauthenticated, and it is what the literature on this
-question uses, including DeMiguel, Garlappi and Uppal, whose 1/N result is the
-benchmark this project has to answer.  Using the same data as the paper you are
-arguing with beats using better data.
+both, free and unauthenticated, and it is what the literature on this question
+uses, including DeMiguel, Garlappi and Uppal, whose 1/N result is the benchmark
+this project has to answer.
 
-Two datasets, picked for their aspect ratios.  The 49 industry portfolios with
-a 250-day window give q = 49/249 = 0.20, a realistic working regime.  The 100
-size and book-to-market portfolios give q = 0.40, the stress case where random
-matrix effects are unmissable.  Running the same code on both, and seeing the
-damage scale with q the way the theory says, is the point of having two.
+Two datasets, picked for their aspect ratios.  The 49 industry portfolios with a
+250-day window give q = 49/249 = 0.20, a realistic working regime; the 100 size
+and book-to-market portfolios give q = 0.40, the stress case.  Running the same
+code on both and seeing the damage scale with q is the point of having two.
 
 A caveat about the 100 portfolios, better stated here than discovered in the
 results: they come from sorting on two characteristics, so neighbouring
-portfolios hold overlapping stocks and are much more correlated with each other
+portfolios hold overlapping stocks and are far more correlated with each other
 than 100 individual stocks would be.  Their true covariance is closer to low
 rank than a generic cross-section, which flatters any estimator assuming low
 rank.  The industry portfolios are less degenerate that way.
@@ -24,16 +22,12 @@ File format quirks, all handled in `_parse_table`:
 
 - Several tables sit in one CSV, separated by blank lines, each introduced by a
   title line and then a header row starting with a comma.  We want the first,
-  "Average Value Weighted Returns -- Daily"; the rest are equal-weighted
-  returns, firm counts and average firm sizes.
-- Missing values are coded `-99.99` *and* `-999`.  The file header says so.  A
-  loader that only knows about -99.99 treats -999 as a -99900% return, which is
-  not subtle but also does not raise.
+  "Average Value Weighted Returns -- Daily".
+- Missing values are coded `-99.99` *and* `-999`.  A loader that only knows
+  about -99.99 reads -999 as a -99900% return, which does not raise.
 - Returns are in percent and get divided by 100 on load.  Getting that wrong
-  scales every variance by 10^4 and cancels out of any ratio, so it is the kind
-  of mistake that survives to publication.
-- Dates are YYYYMMDD integers.
-- The file ends with a copyright line, which is not a data row.
+  scales every variance by 10^4 and cancels out of any ratio.
+- Dates are YYYYMMDD integers, and the file ends with a copyright line.
 """
 
 from __future__ import annotations
@@ -95,9 +89,8 @@ def cache_path(dataset_key: str, cache_dir: Path) -> Path:
 def download(dataset_key: str, cache_dir: Path, force: bool = False) -> Path:
     """Fetch one dataset's zip archive into the cache and return its path.
 
-    Kept separate from loading so that the test suite and a clean clone never
-    touch the network: `make data` downloads, everything else reads the cache
-    or works on simulated data.
+    Separate from loading so the test suite and a clean clone never touch the
+    network: `make data` downloads, everything else reads the cache.
     """
     import requests  # imported here so the package imports without it
 
@@ -165,21 +158,18 @@ def load_returns(
 ) -> pd.DataFrame:
     """Load daily returns as decimals, with missing codes turned into gaps and removed.
 
-    `min_coverage` is the fraction of the requested window a portfolio must be
-    present for to be kept; portfolios below it are dropped as columns, and any
-    day still carrying a gap afterwards is dropped as a row.  Both counts end up
-    in the result's `attrs` and in `describe`, since silently changing N is how
-    a q quoted in a README ends up wrong.
+    `min_coverage` is the fraction of the window a portfolio must be present
+    for; portfolios below it are dropped as columns and any day still carrying a
+    gap is dropped as a row.  Both counts go into the result's `attrs` and into
+    `describe`, since silently changing N is how a q quoted in a README ends up
+    wrong.
 
-    The threshold is 0.99 rather than 1.0 for a concrete reason visible in the
-    data.  Requiring a perfect record throws out the software industry over a
-    single missing day in fifty-six years, which costs a whole asset to save
-    one observation.  The portfolios genuinely worth dropping are the extreme
-    corners of the size and book-to-market sort, empty whenever no firm happens
-    to fall in them, and those are missing between 250 and 2145 days, far below
-    any threshold in this region.  The gap
-    between one missing day and a thousand is wide enough that the exact cutoff
-    changes nothing; 0.99 sits in the middle of it.
+    0.99 rather than 1.0 for a reason visible in the data: a perfect record
+    throws out the software industry over one missing day in fifty-six years,
+    while the portfolios worth dropping are the extreme corners of the size and
+    book-to-market sort, missing between 250 and 2145 days.  The gap between one
+    missing day and a thousand is wide enough that the exact cutoff changes
+    nothing.
     """
     dataset = DATASETS[dataset_key]
     archive = cache_path(dataset_key, cache_dir)

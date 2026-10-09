@@ -1,29 +1,24 @@
 """The rolling out-of-sample protocol, and the ex-ante / ex-post gap.
 
-Every setting in this file could have been chosen after seeing results, and a
-setting chosen that way is not evidence.  So the estimation window, the
-rebalancing frequency and the sample start date live here as module constants,
-are stated in the README, and are never passed in as tuned arguments by the
-study script.  They were fixed before any out-of-sample number existed:
+The estimation window, the rebalancing frequency and the sample start live here
+as module constants, are stated in the README, and are never passed in as tuned
+arguments by the study script.  They were fixed before any out-of-sample number
+existed:
 
 - 250 trading days of estimation, one calendar year.  Long enough for the
-  covariance to be estimable, short enough for it to still be current, and it
-  puts the two datasets at q = 49/249 = 0.20 and q = 95/249 = 0.38, either side
-  of the regime the project is about.
-- Rebalance every 21 trading days and hold for the following month.  Monthly is
-  the standard frequency in this literature.  Daily rebalancing would give more
-  out-of-sample observations and tighter variance estimates, but turnover would
-  then be mostly noise trading and would stop separating the estimators, and
-  turnover is one of the things being measured.
+  covariance to be estimable, short enough to still be current, and it puts the
+  two datasets at q = 49/249 = 0.20 and q = 95/249 = 0.38.
+- Rebalance every 21 trading days and hold for the following month, the
+  standard frequency in this literature.  Daily would give tighter variance
+  estimates but turnover would be mostly noise trading, and turnover is one of
+  the things being measured.
 - Sample from 1970, for the coverage reason given in `data.py`.
 
-`predicted_variance_ratio` and `realised_variance_ratio` are the interesting
-functions here.  They give the variance the optimiser predicts for its own
-portfolio and the variance that portfolio goes on to realise, both as exact
-finite-sample expectations under Gaussian returns, and their ratio grows like
-1/(1 - q)^2.  At q = 0.38 that is a factor of 2.6, so the optimiser is not
-mildly optimistic; it is wrong by more than it is right and has no way of
-telling.
+`predicted_variance_ratio` and `realised_variance_ratio` give the variance the
+optimiser predicts for its own portfolio and the variance that portfolio goes
+on to realise, both as exact finite-sample expectations under Gaussian returns.
+Their ratio grows like 1/(1 - q)^2, so at q = 0.38 the optimiser is wrong by a
+factor of 2.6 and has no way of telling.
 """
 
 from __future__ import annotations
@@ -59,18 +54,15 @@ TRADING_DAYS = 252
 def predicted_variance_ratio(n_assets: int, n_obs: int) -> float:
     """E[predicted variance] / true minimum variance, exactly, for Gaussian returns.
 
-    The minimum-variance portfolio built from the sample covariance S predicts
-    for itself the variance 1 / (1' S^-1 1).  With demeaned Gaussian data,
-    S is Wishart with n = T - 1 degrees of freedom, and the scalar 1/(1'S^-1 1)
-    is distributed as the true minimum variance times a chi-squared on
-    n - N + 1 degrees of freedom divided by n.  Taking expectations,
+    The minimum-variance portfolio from S predicts for itself the variance
+    1 / (1' S^-1 1).  With demeaned Gaussian data S is Wishart with n = T - 1
+    degrees of freedom, and 1/(1'S^-1 1) is the true minimum variance times a
+    chi-squared on n - N + 1 degrees of freedom over n, so
 
         E[predicted] / true = (n - N + 1) / n = (T - N) / (T - 1).
 
-    The optimiser's own forecast of its variance is therefore biased *down* by
-    a factor that goes to zero as N approaches T.  It does not just fail to
-    notice the trouble it is in, it grows more confident as the trouble gets
-    worse.
+    The optimiser's own forecast is biased down by a factor going to zero as N
+    approaches T: it grows more confident as the trouble gets worse.
     """
     n = n_obs - 1
     if n - n_assets + 1 <= 0:
@@ -85,8 +77,7 @@ def realised_variance_ratio(n_assets: int, n_obs: int) -> float:
 
         E[realised] / true = (n - 1) / (n - N) = (T - 2) / (T - N - 1),
 
-    which diverges as N approaches T - 1.  Multiplying the two ratios gives the
-    factor by which the optimiser deceives itself,
+    which diverges as N approaches T - 1.  The product of the two ratios is
 
         (T - 2)(T - 1) / [(T - N - 1)(T - N)]  ->  1 / (1 - q)^2.
 
@@ -108,8 +99,7 @@ def drift_weights(weights: np.ndarray, returns: np.ndarray) -> np.ndarray:
 
     A portfolio left alone does not keep its weights: positions that went up
     become a larger share of the book.  Turnover must be measured against these
-    drifted weights, not against the weights originally set, or every strategy
-    is charged for trades it did not make.
+    drifted weights, or every strategy is charged for trades it did not make.
     """
     growth = np.prod(1.0 + np.asarray(returns), axis=0)
     value = np.asarray(weights) * growth
@@ -135,10 +125,9 @@ class BacktestResult:
     def summary(self) -> dict[str, float]:
         """Headline statistics.  Volatility is annualised; Sharpe is on raw returns.
 
-        The Sharpe ratio here uses raw rather than excess returns, because no
-        risk-free series is loaded and subtracting one would change every
-        strategy's numerator by the same amount without changing the ranking on
-        a set of fully invested portfolios.  It is reported for comparison with
+        Raw rather than excess returns: no risk-free series is loaded, and
+        subtracting one would shift every numerator equally without changing the
+        ranking of fully invested portfolios.  Reported for comparison with
         DeMiguel, Garlappi and Uppal, not as a claim about tradeable alpha.
         """
         returns = self.daily_returns
@@ -226,9 +215,9 @@ def run_backtest(
 
     At each rebalance date the covariance is estimated on the previous `window`
     days, weights are formed, and the portfolio is held for the next `step`
-    days.  Nothing from the holding period is visible to the estimator, which
-    is the entire point; the indices below are the place where a look-ahead bug
-    would live, so they are written out rather than hidden in a slicing helper.
+    days.  Nothing from the holding period reaches the estimator.  The indices
+    below are where a look-ahead bug would live, so they are written out rather
+    than hidden in a slicing helper.
     """
     values = np.asarray(returns, dtype=float)
     dates = list(returns.index) if isinstance(returns, pd.DataFrame) else list(range(len(values)))
@@ -293,22 +282,20 @@ def summarise(results: dict[str, BacktestResult]) -> pd.DataFrame:
 def breakeven_cost(result: BacktestResult, benchmark: BacktestResult) -> float:
     """One-way proportional cost, in basis points, at which a strategy ties the benchmark.
 
-    Comparing against 1/N without this number would be misleading.  An optimised
-    portfolio here turns over one to three times its own value a month while 1/N
-    turns over about two percent, so any gross advantage it shows is bought with
-    trading the benchmark never does.  The question worth answering is how
+    An optimised portfolio here turns over one to three times its own value a
+    month against about two percent for 1/N, so any gross advantage is bought
+    with trading the benchmark never does, and the number worth quoting is how
     expensive trading would have to get before the advantage disappeared.
 
-    Model: a proportional cost c on one-way turnover, charged at each rebalance,
-    so the annual drag is c times turnover times the number of rebalances per
-    year.  Volatility is treated as unchanged, which is a good approximation
-    because the cost is close to deterministic while the return is not.  Solving
-    for the c at which the two net Sharpe ratios coincide gives a linear
-    equation, since both numerators are linear in c.
+    A proportional cost c on one-way turnover at each rebalance, so the annual
+    drag is c times turnover times the rebalances per year.  Volatility is
+    treated as unchanged, a good approximation since the cost is nearly
+    deterministic while the return is not.  Both net Sharpe numerators are
+    linear in c, so the tie is a linear equation.
 
-    Returns infinity when the strategy cannot be caught, meaning it already has
-    both a higher return and a lower volatility, and a negative number when it
-    loses to the benchmark before any costs are charged at all.
+    Infinity when the strategy cannot be caught, that is when it already has
+    both a higher return and a lower volatility, and negative when it loses to
+    the benchmark before any costs.
     """
     a, b = result.summary(), benchmark.summary()
     per_year = TRADING_DAYS / REBALANCE_EVERY
